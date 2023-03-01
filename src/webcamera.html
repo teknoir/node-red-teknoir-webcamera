@@ -1,21 +1,45 @@
-<script type="text/x-red" data-template-name="webcamera">
+<script type="text/html" data-template-name="webcamera">
     <div class="form-row">
-        <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
-        <input type="text" id="node-input-name" placeholder="Webcamera">
+        <label><b>Name</b></label>
+        <input type="text" id="node-input-name" placeholder="<Node name>" style="width:100%; margin-right:5px;">
     </div>
     <div class="form-row">
-        <label for="node-input-topic"><i class="fa fa-tag"></i> Topic</label>
-        <input type="text" id="node-input-topic" placeholder="Topic">
+        <label><b>Topic</b></label>
+        <input type="text" id="node-input-topic" placeholder="<Topic name>" style="width:100%; margin-right:5px;">
     </div>
     <div class="form-row">
-        <label for="node-input-webcamera"><i class="fa fa-camera"></i> Device</label>
+        <label><b>Device</b></label>
         <select id="node-input-webcamera" style="width:100%; margin-right:5px;">
-            <option placeholder=""></option>
+            <option placeholder="<Choose webcamera>"></option>
         </select>
+    </div>
+    <div class="form-row">
+        <label><b>View</b></label>
+        <div class="form-row">
+            <i class="fa fa-arrows-h"></i>
+            <input type="number" id="node-input-width" style="width:45%; margin-right:5px;">
+            <i class="fa fa-arrows-v"></i>
+            <input type="number" id="node-input-height" style="width:45%; margin-right:5px;">
+        </div>
+    </div>
+    <div class="form-row">
+        <i>Live view size width x height</i>
+    </div>
+    <div class="form-row">
+        <label><b>Output</b></label>
+        <div class="form-row">
+            <i class="fa fa-arrows-h"></i>
+            <input type="number" id="node-input-imageWidth" style="width:45%; margin-right:5px;">
+            <i class="fa fa-arrows-v"></i>
+            <input type="number" id="node-input-imageHeight" style="width:45%; margin-right:5px;">
+        </div>
+    </div>
+    <div class="form-row">
+        <i>Output image size width x height</i>
     </div>
 </script>
 
-<script type="text/x-red" data-help-name="webcamera">
+<script type="text/html" data-help-name="webcamera">
     <p>A simple camera node to capture the current image from the client webcam</p>
     <p>This node only works while a browser is connected and is mostly used for demos and testing!!!</p>
     <p>Usage:</p>
@@ -23,15 +47,21 @@
         <li>Add the camera node to your flow</li>
         <li>Click the <code>button</code> capture an image from the webcam</li>
     </ol>
-    <p>The <code>png</code> image is sent as the <code>msg.payload</code> object</p>
+    <p>The <code>jpeg</code> image buffer is sent as the <code>msg.payload</code> object.</p>
     <p>If a topic is added it will be set as <code>msg.topic</code>.</p>
+    <p>View width and height sets the Live View size. For best results it has to match the aspect ratio of
+        the Output image size.</p>
+    <p>Output image width and height sets the size of the image snapshot taken from trigger or when pressing the
+        button.</p>
 </script>
 
 
 <script type="text/javascript">
     (function () {
         const DEFAULT_WIDTH = 160;
-        const DEFAULT_HEIGHT = 90;
+        const DEFAULT_HEIGHT = 120;
+        const DEFAULT_IMAGE_WIDTH = 800;
+        const DEFAULT_IMAGE_HEIGHT = 600;
         console.log("WebCam 0.0.1")
         navigator.getUserMedia = navigator.getUserMedia || navigator.webkitGetUserMedia || navigator.mozGetUserMedia || navigator.msGetUserMedia;
         window.URL = window.URL || window.webkitURL || window.mozURL || window.msURL;
@@ -40,20 +70,26 @@
                 category: 'input',
                 defaults: {
                     name: {value: ''},
-                    // width: {
-                    //     value: DEFAULT_WIDTH,
-                    //     required: true,
-                    //     validate: function (v) {
-                    //         return !v || !isNaN(parseInt(v, 10));
-                    //     }
-                    // },
-                    // height: {
-                    //     value: DEFAULT_HEIGHT,
-                    //     required: true,
-                    //     validate: function (v) {
-                    //         return !v || !isNaN(parseInt(v, 10));
-                    //     }
-                    // },
+                    width: {
+                        value: DEFAULT_WIDTH,
+                        required: true,
+                        validate: RED.validators.number()
+                    },
+                    height: {
+                        value: DEFAULT_HEIGHT,
+                        required: true,
+                        validate: RED.validators.number()
+                    },
+                    imageWidth: {
+                        value: DEFAULT_IMAGE_WIDTH,
+                        required: true,
+                        validate: RED.validators.number()
+                    },
+                    imageHeight: {
+                        value: DEFAULT_IMAGE_HEIGHT,
+                        required: true,
+                        validate: RED.validators.number()
+                    },
                     webcamera: {value: ''},
                     topic: {value: ''}
                 },
@@ -79,7 +115,7 @@
                 },
                 button: {
                     onclick: function () {
-                        takeSnapshot(this.id, this.webcamera, this.topic);
+                        takeSnapshot(this.id, this.webcamera, this.topic, this.imageWidth, this.imageHeight);
                     }
                 },
                 oneditprepare: function () {
@@ -124,16 +160,13 @@
             }
         );
 
-        function takeSnapshot(id, device, topic) {
+        function takeSnapshot(id, device, topic, width, height) {
             if (!device || device === '') {
                 console.log("No camera device selected!");
             } else {
                 let video = document.getElementById("webcam-output-video-" + id);
 
                 if (video) {
-                    const width = 1280;
-                    const height = 720;
-
                     let canvas = document.createElement('canvas');
                     canvas.setAttribute('width', width);
                     canvas.setAttribute('height', height);
@@ -174,8 +207,8 @@
             } else {
                 let videoConstraints = {
                     deviceId: {exact: node.webcamera},
-                    width: {ideal: 1280},
-                    height: {ideal: 720}
+                    width: {ideal: parseInt(node.imageWidth, 10)},
+                    height: {ideal: parseInt(node.imageHeight, 10)}
                 };
 
                 let $fo = document.getElementById("webcam-output-" + id)
@@ -191,8 +224,8 @@
                     bubble.setAttribute('stroke', '#999999');
                     const left = 0;
                     const top = 36;
-                    const right = left + DEFAULT_WIDTH;
-                    const bottom = top + DEFAULT_HEIGHT;
+                    const right = left + parseInt(node.width, 10);
+                    const bottom = top + parseInt(node.height, 10);
                     const points =
                         (left + 10) + "," + (top - 5) + " " +
                         (left + 10) + "," + top + " " +
@@ -202,6 +235,7 @@
                         left + "," + top + " " +
                         (left + 5) + "," + top + " " +
                         (left + 5) + "," + (top - 5)
+                    console.log(points)
                     bubble.setAttribute('points', points)
                     $container.insertBefore(bubble, $container.lastChild.nextSibling);
 
@@ -209,16 +243,16 @@
                     $fo.setAttribute('id', "webcam-output-fo-" + id);
                     $fo.setAttribute('x', '0');
                     $fo.setAttribute('y', '36');
-                    $fo.setAttribute('width', node.width || DEFAULT_WIDTH);
-                    $fo.setAttribute('height', node.height || DEFAULT_HEIGHT);
+                    $fo.setAttribute('width', node.width);
+                    $fo.setAttribute('height', node.height);
                     $container.insertBefore($fo, $container.lastChild.nextSibling);
 
                     const video = $fo.appendChild(document.createElement('video'));
                     video.setAttribute('id', "webcam-output-video-" + id);
                     video.setAttribute('x', '0');
                     video.setAttribute('y', '0');
-                    video.setAttribute('width', node.width || DEFAULT_WIDTH);
-                    video.setAttribute('height', node.height || DEFAULT_HEIGHT);
+                    video.setAttribute('width', node.width);
+                    video.setAttribute('height', node.height);
                     video.autoplay = true;
 
                     const constraints = {
@@ -239,7 +273,7 @@
 
         RED.comms.subscribe('webcam-snapshot', function (event, msg) {
             let node = RED.nodes.node(msg.id);
-            takeSnapshot(node.id, node.webcamera, msg.topic)
+            takeSnapshot(node.id, node.webcamera, msg.topic, node.imageWidth, node.imageHeight)
         })
     })();
 </script>
